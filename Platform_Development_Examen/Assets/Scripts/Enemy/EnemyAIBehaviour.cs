@@ -11,7 +11,6 @@ public class EnemyAIBehaviour : MonoBehaviour
     [SerializeField] private Transform _player;
 
     private Vector3 direction;
-    private float angle;
 
     //Animation
     private Animator _animator;
@@ -35,8 +34,8 @@ public class EnemyAIBehaviour : MonoBehaviour
     //Behaviour Tree
     [Header("Behaviour Tree")]
     [SerializeField] private Transform _lightSwitchPos;
-    [SerializeField] private bool isLightsOff = false;
-    [SerializeField] private bool isPlayerSpot = false;
+    [SerializeField] private bool _isLightsOn = true;
+    [SerializeField] private bool _isPlayerSpot = false;
 
     private INode _rootNode;
 
@@ -73,9 +72,7 @@ public class EnemyAIBehaviour : MonoBehaviour
     IEnumerator RunTree()
     {
         while (Application.isPlaying)
-        {
             yield return _rootNode.Tick();
-        }
     }
 
     IEnumerator<NodeResult> GoToLightSwitchPosition()
@@ -97,8 +94,15 @@ public class EnemyAIBehaviour : MonoBehaviour
 
     bool IsLightsOff()
     {
+        //If lights are off the enemy will walk towards the lightswitch
+        if (_isLightsOn)
+        {
+            _animator.SetBool("IsIdle", false);
+            _enemy.destination = _lightSwitchPos.position;
+        }
+
         //If the lights are on the enemy will be patrolling
-        if (!isLightsOff)
+        else if (!_isLightsOn)
         {
             if (!_enemy.pathPending && _enemy.remainingDistance < 0.5f)
                 GoToNextPoint();
@@ -106,33 +110,24 @@ public class EnemyAIBehaviour : MonoBehaviour
             _enemy.speed = _speed;
         }
 
-        //If lights are off the enemy will walk towards the lightswitch
-        if(isLightsOff)
-            _enemy.destination = _lightSwitchPos.position;
-
-        return isLightsOff;
+        return _isLightsOn;
     }
 
     bool IsPlayerSpot()
     {
         direction = _player.position - _enemy.transform.position;
-        angle = Vector3.Angle(direction, transform.forward);
 
         if (direction.z < startPos.forward.z * FieldOfViewDistance)
         {
-            //isPlayerSpot = true;
-            //if (isPlayerSpot)
-            //{
-            //    _animator.SetBool("IsShooting", true);
-            //}
+
         }
         else
         {
-            isPlayerSpot = false;
+            _isPlayerSpot = false;
             _animator.SetBool("IsShooting", false);
         }
 
-        return isPlayerSpot;
+        return _isPlayerSpot;
     }
 
     //Navigation Methods
@@ -147,9 +142,7 @@ public class EnemyAIBehaviour : MonoBehaviour
             _animator.SetBool("IsIdle", true);
         }
         else
-        {
             _animator.SetBool("IsIdle", false);
-        }
 
         _enemy.destination = _points[_destinationPoint].position;
 

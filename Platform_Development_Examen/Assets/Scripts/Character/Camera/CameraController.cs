@@ -8,14 +8,14 @@ public class CameraController : MonoBehaviour {
     [SerializeField] private float _speed;
 
     private Camera _camera;
-    private float _normalFOV, _zoomFOV;
+    private float _zoomOutFOV, _zoomInFOV;
     private float _verticalInput, _horizontalInput;
 
     private void Start()
     {
         _camera = GetComponent<Camera>();
-        _normalFOV = 60.0f;
-        _zoomFOV = 30.0f;
+        _zoomOutFOV = 80.0f;
+        _zoomInFOV = 30.0f;
     }
     private void Update()
     {
@@ -49,11 +49,11 @@ public class CameraController : MonoBehaviour {
     private void ApplyCameraZoomInAndOut()
     {
         //Zoom in
-        if (Input.GetAxis("360_LeftTrigger") != 0)
-            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView,_zoomFOV, Time.deltaTime);
+        if (Input.GetAxis("360_LeftTrigger") != 0 )
+            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView,_zoomInFOV, Time.fixedDeltaTime * 20.0f);
 
         //Zoom out
         if (Input.GetAxis("360_RightTrigger") != 0)
-            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView,_normalFOV, Time.deltaTime);
+            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView,_zoomOutFOV, Time.fixedDeltaTime * 20.0f);
     }
 }

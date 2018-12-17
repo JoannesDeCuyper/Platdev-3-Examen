@@ -7,6 +7,7 @@ TagManager:
   - Wall
   - Cover
   - Ladder
+  - Lights
   layers:
   - Default
   - TransparentFX
