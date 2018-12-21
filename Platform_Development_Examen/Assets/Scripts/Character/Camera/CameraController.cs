@@ -7,9 +7,10 @@ public class CameraController : MonoBehaviour {
     [SerializeField] private Transform _playerPoint;
     [SerializeField] private float _speed;
 
+    private Vector3 _InputAxis;
     private Camera _camera;
     private float _zoomOutFOV, _zoomInFOV;
-    private float _verticalInput, _horizontalInput;
+    public float _verticalInput, _horizontalInput;
 
     private void Start()
     {
@@ -19,8 +20,8 @@ public class CameraController : MonoBehaviour {
     }
     private void Update()
     {
-        _verticalInput = Input.GetAxis("360_VerticalY");
-        _horizontalInput = Input.GetAxis("360_HorizontalX");
+        _horizontalInput = Input.GetAxis("360_HorizontalX") * _speed * Time.deltaTime;
+        _verticalInput = Input.GetAxis("360_VerticalY") * _speed * Time.deltaTime;
     }
 
     private void FixedUpdate()
@@ -32,9 +33,9 @@ public class CameraController : MonoBehaviour {
 
     private void ApplyCameraController()
     {
-        transform.RotateAround(_playerPoint.position, Vector3.up, _horizontalInput * _speed * Time.fixedDeltaTime);
-        transform.RotateAround(_playerPoint.position, Vector3.left, _verticalInput * _speed * Time.fixedDeltaTime);
-        transform.LookAt(_playerPoint);
+        transform.RotateAround(_playerPoint.position, Vector3.up, _horizontalInput);
+        transform.RotateAround(_playerPoint.position, Vector3.left, _verticalInput);
+        transform.LookAt(_playerPoint.position);
     }
 
     private void ApplyCameraRotationWithBumpers()

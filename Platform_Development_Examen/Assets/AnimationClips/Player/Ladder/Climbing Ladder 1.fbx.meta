@@ -173,10 +173,10 @@ ModelImporter:
       name: Climbing Ladder Clip
       takeName: mixamo.com
       firstFrame: 0
-      lastFrame: 0
+      lastFrame: 0.1
       wrapMode: 0
       orientationOffsetY: 0
-      level: -2
+      level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
@@ -188,7 +188,7 @@ ModelImporter:
       keepOriginalOrientation: 0
       keepOriginalPositionY: 0
       keepOriginalPositionXZ: 0
-      heightFromFeet: 0
+      heightFromFeet: 1
       mirror: 0
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []

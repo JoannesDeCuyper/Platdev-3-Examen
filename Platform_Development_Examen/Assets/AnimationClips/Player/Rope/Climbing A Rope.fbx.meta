@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 797aaa5e1f2ef7b41bc0a5a987411f43
+guid: 6ca8cc5c8421fbd47bfa591fe8cb88bc
 ModelImporter:
   serializedVersion: 23
   fileIDToRecycleName:
@@ -173,15 +173,15 @@ ModelImporter:
       name: Climbing A Rope Clip
       takeName: mixamo.com
       firstFrame: 0
-      lastFrame: 72
+      lastFrame: 77
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
-      hasAdditiveReferencePose: 1
+      hasAdditiveReferencePose: 0
       loopTime: 1
-      loopBlend: 1
+      loopBlend: 0
       loopBlendOrientation: 1
       loopBlendPositionY: 1
       loopBlendPositionXZ: 1
