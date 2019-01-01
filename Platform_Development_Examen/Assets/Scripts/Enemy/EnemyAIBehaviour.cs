@@ -4,11 +4,14 @@ using UnityEngine;
 using UnityEngine.Experimental.UIElements;
 using UnityEngine.AI;
 
+[RequireComponent(typeof(NavMeshAgent))]
+
 public class EnemyAIBehaviour : MonoBehaviour
 {
     //Player
     [Header("Player")]
     [SerializeField] private Transform _player;
+    [SerializeField] private CharacterControllerBehaviour _playerBehaviour;
 
     private Vector3 direction;
 
@@ -25,19 +28,26 @@ public class EnemyAIBehaviour : MonoBehaviour
     [Header("Navigation")]
     [SerializeField] private NavMeshAgent _enemy;
     [SerializeField] private Transform[] _points;
+    [SerializeField] private float _standingTimer;
+    [SerializeField] private float _standTime = 5.0f;
 
     private float _speed;
     private int _destinationPoint = 0;
-    private float _timer;
-    private float _time = 20.0f;
+
+    //Lights
+    [SerializeField] private bool _isOnLightSwitchPos = false;
+    [SerializeField] private float _turnOnLightsTimer;
+    [SerializeField] private float _turnOnLightsTime = 2.0f;
+    [SerializeField] private float _enemyNumber;
 
     //Behaviour Tree
     [Header("Behaviour Tree")]
     [SerializeField] private Transform _lightSwitchPos;
-    [SerializeField] private bool _isLightsOn = true;
-    [SerializeField] private bool _isPlayerSpot = false;
+    [SerializeField] private bool _isPlayerSpot = true;
 
     private INode _rootNode;
+
+    public float timer = 1.5f;
 
     private void Start()
     {
@@ -45,19 +55,21 @@ public class EnemyAIBehaviour : MonoBehaviour
         _animator = GetComponent<Animator>();
 
         //Navigation
-        _timer = _time;
+        _standingTimer = _standTime;
         _speed = (5.0f * 1000) / (60 * 60); //[m/s], 5km/h
 
-        //Behaviour Tree
-        INode lightsOffAI = new SequenceNode(
-            new ConditionNode(IsLightsOff),
-            new ActionNode(GoToLightSwitchPosition));
+        //Lights
+        _turnOnLightsTimer = _turnOnLightsTime;
 
-        INode seePlayerAI = new SequenceNode(
+        //Behaviour Tree
+        INode AILight = new SelectorNode(
+            new ConditionNode(IsLightsOff),
+            new ActionNode(WalkToLightSwitch));
+        INode AIShoot = new SelectorNode(
             new ConditionNode(IsPlayerSpot),
             new ActionNode(Shoot));
 
-        _rootNode = new SelectorNode(lightsOffAI,seePlayerAI);
+        _rootNode = new SequenceNode(AILight,AIShoot);
 
         StartCoroutine(RunTree());
     }
@@ -75,10 +87,6 @@ public class EnemyAIBehaviour : MonoBehaviour
             yield return _rootNode.Tick();
     }
 
-    IEnumerator<NodeResult> GoToLightSwitchPosition()
-    {
-        yield return NodeResult.Succes;
-    }
     IEnumerator<NodeResult> Shoot()
     {
         yield return NodeResult.Succes;
@@ -94,51 +102,71 @@ public class EnemyAIBehaviour : MonoBehaviour
 
     bool IsLightsOff()
     {
-        //If lights are off the enemy will walk towards the lightswitch
-        if (_isLightsOn)
+        if (_playerBehaviour.IsLightsOn)
         {
-            _animator.SetBool("IsIdle", false);
-            _enemy.destination = _lightSwitchPos.position;
-        }
-
-        //If the lights are on the enemy will be patrolling
-        else if (!_isLightsOn)
-        {
+            FieldOfViewDistance = 15.0f;
             if (!_enemy.pathPending && _enemy.remainingDistance < 0.5f)
                 GoToNextPoint();
 
             _enemy.speed = _speed;
         }
+        
+        //If lights are off the enemy will walk towards the lightswitch
+        if (!_playerBehaviour.IsLightsOn)
+        {
+            FieldOfViewDistance = 5.0f;
+            _animator.SetBool("IsIdle", false);
+            _enemy.destination = _lightSwitchPos.position;
+        }
+        //Turn on light
+        if (_enemy.pathEndPosition.x == _lightSwitchPos.position.x && _enemy.remainingDistance < 0.5f)
+        {
+            _turnOnLightsTimer -= Time.deltaTime;
 
-        return _isLightsOn;
+            if (_turnOnLightsTimer <= 0)
+            {
+                _turnOnLightsTimer = _turnOnLightsTime;
+                _isOnLightSwitchPos = true;
+                _playerBehaviour.IsLightsOn = true;
+            }
+        }
+
+        return _playerBehaviour.IsLightsOn;
     }
 
     bool IsPlayerSpot()
     {
-        direction = _player.position - _enemy.transform.position;
+        float distance = Vector3.Distance(_enemy.transform.position, _player.position);
 
-        if (direction.z < startPos.forward.z * FieldOfViewDistance)
+        if (distance < FieldOfViewDistance)
+            _isPlayerSpot = true;
+
+        if (_isPlayerSpot == true)
         {
-
+            timer -= Time.deltaTime;
+            Time.timeScale = 0.3f;
+            _player.GetComponent<Animator>().SetBool("IsDead", true);
+            _playerBehaviour._isWalking = false;
+            transform.LookAt(_player);
+            _animator.SetBool("IsShooting", true);
+            _speed = 0;
         }
-        else
-        {
-            _isPlayerSpot = false;
-            _animator.SetBool("IsShooting", false);
-        }
-
+        if(timer <= 0.5f)
+            timer = 0;
+       
+        if(timer == 0)
+            Time.timeScale = 1;
+        
         return _isPlayerSpot;
     }
 
     //Navigation Methods
     private void GoToNextPoint()
     {
-        if (_points.Length == 0)
-            return;
-
         if (_enemy.destination.x == _points[_destinationPoint].position.x)
         {
-            _timer -= Time.deltaTime;
+            _enemy.transform.position = _points[_destinationPoint].position;
+            _standingTimer -= Time.deltaTime;
             _animator.SetBool("IsIdle", true);
         }
         else
@@ -146,9 +174,9 @@ public class EnemyAIBehaviour : MonoBehaviour
 
         _enemy.destination = _points[_destinationPoint].position;
 
-        if (_timer <= 0)
+        if (_standingTimer <= 0)
         {
-            _timer = _time;
+            _standingTimer = _standTime;
             _destinationPoint = (_destinationPoint + 1) % _points.Length;
         }
     }
@@ -158,6 +186,8 @@ public class EnemyAIBehaviour : MonoBehaviour
         Debug.DrawRay(startPos.position, startPos.forward * FieldOfViewDistance, Color.red);
         Debug.DrawRay(startPos.position, startPos.forward * FieldOfViewDistance + startPos.right * FieldOfView, Color.yellow);
         Debug.DrawRay(startPos.position, startPos.forward * FieldOfViewDistance - startPos.right * FieldOfView, Color.blue);
+
+        Debug.DrawLine(_enemy.transform.position, _player.position,Color.cyan);
     }
 }
 

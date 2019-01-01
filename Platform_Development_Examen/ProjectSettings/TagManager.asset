@@ -9,6 +9,7 @@ TagManager:
   - Ladder
   - Lights
   - IK
+  - PCTS
   layers:
   - Default
   - TransparentFX

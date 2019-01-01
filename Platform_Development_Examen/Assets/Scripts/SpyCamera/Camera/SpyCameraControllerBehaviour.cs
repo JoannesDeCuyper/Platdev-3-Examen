@@ -12,6 +12,7 @@ public class SpyCameraControllerBehaviour : MonoBehaviour
     [Header("User Interface")]
     [SerializeField] private GameObject _switchCameraMessage;
     [SerializeField] private GameObject _zoomCameraMessage;
+    [SerializeField] private GameObject _interactGetOutOfCoverMessage;
 
     public int _number = 0;
     private bool _AButton, _XButton;
@@ -48,6 +49,7 @@ public class SpyCameraControllerBehaviour : MonoBehaviour
     {
         if(_XButton && _characterControllerScript.IsHacking)
         {
+            _interactGetOutOfCoverMessage.SetActive(false);
             _switchCameraMessage.SetActive(true);
             _zoomCameraMessage.SetActive(true);
             _isSpyMode = !_isSpyMode;
