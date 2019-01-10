@@ -9,7 +9,9 @@ public class CharacterControllerBehaviour : MonoBehaviour
 {
     //Player
     [Header("Player")]
-    public bool _isWalking;
+    [SerializeField] private Transform _yBotPlayer;
+    public float _dragOnGround;
+    public bool IsWalking;
 
     private CharacterController _player;
     private BoxCollider _playerBoxCollider;
@@ -48,8 +50,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [SerializeField] private GameObject[] _crouchingCover;
     [SerializeField] private GameObject[] _standingCover;
 
-    private bool _isCrouchingCover;
-    private bool _isStandingCover;
+    public bool IsCrouchingCover;
+    public bool IsStandingCover;
 
     [Header("Ladder")]
     //Animation --> Ladder
@@ -85,18 +87,22 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
     [Header("User Iterface")]
     //User Interface
-    [SerializeField] private GameObject _interactBoxMessage;
+    [SerializeField] private GameObject _interactBallMessage;
+    [SerializeField] private GameObject _interactCrateMessage;
     [SerializeField] private GameObject _interactHackMessage;
     [SerializeField] private GameObject _interactClimbWallMessage;
     [SerializeField] private GameObject _interactStandUpMessage;
     [SerializeField] private GameObject _interactGetOutOfCoverMessage;
+    [SerializeField] private GameObject _interactThrowBallMessage;
     [SerializeField] private GameObject _cameraMessage;
+    [SerializeField] private GameObject _winScreen;
 
     [Header("IK")]
                         //Hands
     [Header("Hands")]
     [SerializeField] private Transform _leftHand;
     [SerializeField] private Transform _rightHand;
+    [SerializeField] private Transform _rightHandMiddle;
                         //Crate
     [Header("Crate")]
     [SerializeField] private Transform _leftHandCrateTarget;
@@ -115,6 +121,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [Header("Wall")]
     [SerializeField] private Transform _wallTarget;
     [SerializeField] private Transform _wallPos;
+    [SerializeField] private Vector3 _currentWallTargetPosition;
+    [SerializeField] private Vector3 _currentWallPosPosition;
 
     private bool _isOnWall;
                         //Ladder
@@ -128,14 +136,17 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [Header("Ball")]
     [SerializeField] private GameObject _ball;
     [SerializeField] private Transform _rightHandBallTarget;
+    [SerializeField] private AnimationClip _pickingUpClip;
+    [SerializeField] private AnimationClip _throwingBallClip;
+    [SerializeField] private Transform _ballGroundTarget;
+    public bool IsBallAtPosition;
 
-    private bool _pickingUpBall;
-
-    //IK Behaviour scripts
-    private PushingBoxBehaviour _pushingIKBehaviour;
-    private ClimbingRopeBehaviour _climbingRopeIKBehaviour;
-    private ClimbingLadderBehaviour _climbingLadderIKBehaviour;
-    private PickUpBallBehaviour _pickingUpBallBehaviour;
+    private float _pickingUpTimer;
+    private float _throwingBallTimer;
+    public int _throwBallNumber = 0;
+    private bool _isPickingUpBall;
+    private bool _isThrowIdle;
+    private bool _isThrowing;
 
     //Lights
     [Header("Lights")]
@@ -143,7 +154,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
     public bool IsLightsOn = true;
     public bool _isOnGround;
 
+    //Golden Egg
+    [Header("GoldenEgg")]
+    [SerializeField] private GameObject _goldenEgg;
+
+    private bool _isDancing;
     private GameObject[] _lights;
+
+    //IK Behaviour scripts
+    private PushingBoxBehaviour _pushingIKBehaviour;
+    private ClimbingRopeBehaviour _climbingRopeIKBehaviour;
+    private ClimbingLadderBehaviour _climbingLadderIKBehaviour;
+    private PickUpBallBehaviour _pickingUpBallIkBehaviour;
 
     private void Start()
     {
@@ -163,13 +185,21 @@ public class CharacterControllerBehaviour : MonoBehaviour
         _pushingIKBehaviour = _animator.GetBehaviour<PushingBoxBehaviour>();
         _climbingRopeIKBehaviour = _animator.GetBehaviour<ClimbingRopeBehaviour>();
         _climbingLadderIKBehaviour = _animator.GetBehaviour<ClimbingLadderBehaviour>();
-        _pickingUpBallBehaviour = _animator.GetBehaviour<PickUpBallBehaviour>();
+        _pickingUpBallIkBehaviour = _animator.GetBehaviour<PickUpBallBehaviour>();
 
         //Lights
         _lights = GameObject.FindGameObjectsWithTag("Lights");
 
         //Hacking computer
         _hackingTimer = _hackingClip.length;
+
+        //Ball
+        _pickingUpTimer = _pickingUpClip.length / 2;
+        _throwingBallTimer = _throwingBallClip.length;
+
+        //Wall
+        _currentWallTargetPosition = _wallTarget.position;
+        _currentWallPosPosition = _wallPos.position;
     }
 
     private void Update()
@@ -187,10 +217,10 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         _inputMovement = new Vector3(0.0f, 0.0f, _verticalInput);
 
-        if (!_isOnWall && !_isHacking && !_isCrouchingCover && !_isStandingCover && !_isClimbingLadder && !_isPushingCrate && !_isClimbingRope && !_isHanging)
+        if (!_isDancing && !_isOnWall && !_isHacking && !IsCrouchingCover && !IsStandingCover && !_isClimbingLadder && !_isPushingCrate && !_isClimbingRope && !_isHanging)
             transform.Rotate(0.0f, _horizontalInput, 0.0f);
 
-        if (_isCrouchingCover || _isStandingCover || _isHanging)
+        if (IsCrouchingCover || IsStandingCover || _isHanging)
             _inputMovement = new Vector3(_horizontalInput * 0.4f, 0.0f, 0.0f);
 
         if (_isClimbingLadder)
@@ -215,11 +245,12 @@ public class CharacterControllerBehaviour : MonoBehaviour
     private void FixedUpdate()
     {
         ApplyGroundPlayer();
+        ApplyDragOnGround();
 
         if (_isGravity)
             ApplyGravityPlayer();
 
-        if (_isWalking)
+        if (IsWalking)
         {
             //Character
             ApplyMovePlayer();
@@ -242,6 +273,9 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         //Lights
         ApplyTurnOffLights();
+
+        //Golden Egg
+        ApplyEndMission();
     }
 
     //Input
@@ -285,6 +319,11 @@ public class CharacterControllerBehaviour : MonoBehaviour
         }
     }
 
+    private void ApplyDragOnGround()
+    {
+        _velocity *= (1 - Time.fixedDeltaTime * _dragOnGround);
+    }
+
     private void ApplyMovePlayer()
     {
         _velocity = _inputMovement * _speed * Time.deltaTime;
@@ -304,7 +343,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         bool _isRunning;
 
-        if (!_isPushingCrate && !_isHanging && !_isClimbingRope && !_isClimbingLadder && !_isCrouchingCover && !_isCrouching && _L3Button)
+        if (!_isPushingCrate && !_isHanging && !_isClimbingRope && !_isClimbingLadder && !IsStandingCover && !IsCrouchingCover && !_isCrouching && _L3Button)
         {
             _isRunning = true;
             Camera.main.fieldOfView = Mathf.Lerp(Camera.main.fieldOfView, zoomedInFOV, Time.deltaTime * _speed);
@@ -339,16 +378,16 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             if (_playerBoxCollider.bounds.Intersects(crouchingCover.GetComponent<BoxCollider>().bounds))
             {
-                _isCrouchingCover = true;
+                IsCrouchingCover = true;
                 transform.forward = crouchingCover.transform.forward;
-                _animator.SetBool("IsCover", _isCrouchingCover);
+                _animator.SetBool("IsCover", IsCrouchingCover);
                 _interactGetOutOfCoverMessage.SetActive(true);
             }
-            if (_isCrouchingCover && _BButton)
+            if (IsCrouchingCover && _BButton)
             {
                 _interactGetOutOfCoverMessage.SetActive(false);
-                _isCrouchingCover = false;
-                _animator.SetBool("IsCover", _isCrouchingCover);
+                IsCrouchingCover = false;
+                _animator.SetBool("IsCover", IsCrouchingCover);
             }
         }
         //Big cover objects
@@ -356,16 +395,16 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             if (_playerBoxCollider.bounds.Intersects(standingCover.GetComponent<BoxCollider>().bounds))
             {
-                _isStandingCover = true;
+                IsStandingCover = true;
                 transform.forward = standingCover.transform.forward;
-                _animator.SetBool("IsStandingCover", _isStandingCover);
+                _animator.SetBool("IsStandingCover", IsStandingCover);
                 _interactGetOutOfCoverMessage.SetActive(true);
             }
-            if (_isStandingCover && _BButton)
+            if (IsStandingCover && _BButton)
             {
                 _interactGetOutOfCoverMessage.SetActive(false);
-                _isStandingCover = false;
-                _animator.SetBool("IsStandingCover", _isStandingCover);
+                IsStandingCover = false;
+                _animator.SetBool("IsStandingCover", IsStandingCover);
             }
         }
     }
@@ -453,6 +492,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_rightHandRopeNumber >= 10)
         {
+            _yBotPlayer.transform.rotation = Quaternion.Euler(6, 0, 0);
             _rightHandRopeNumber = 10;
             transform.position = _wallTarget.position;
             _isOnWall = true;
@@ -466,11 +506,11 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _animator.SetBool("IsClimbingWall",_isClimbingWall);
         }
         if(_interactStandUpMessage.activeSelf == true)
-        {
             _interactClimbWallMessage.SetActive(false);
-        }
+        
         if (_isClimbingWall && _BButton)
         {
+            _yBotPlayer.transform.rotation = Quaternion.Euler(0, 0, 0);
             _interactStandUpMessage.SetActive(false);
             _rightHandRopeNumber = 0;
             _leftHandRopeNumber = 0;
@@ -479,6 +519,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _animator.SetBool("IsOnWall", false);
             _animator.SetBool("IsClimbingWall", false);
             transform.position = _wallPos.position;
+            _wallTarget.position = _currentWallTargetPosition;
+            _wallPos.position = _currentWallPosPosition;
         }
     }
 
@@ -517,12 +559,12 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _pushingIKBehaviour.LeftHandBoxTarget = _leftHandCrateTarget;
             _pushingIKBehaviour.RightHandBoxTarget = _rightHandCrateTarget;
 
-            _interactBoxMessage.SetActive(true);
+            _interactCrateMessage.SetActive(true);
             _animator.SetBool(_pushingAnimator, true);
         }
         else
         {
-            _interactBoxMessage.SetActive(false);
+            _interactCrateMessage.SetActive(false);
             _isPushingCrate = false;
         }
         if (_YButton && _playerBoxCollider.bounds.Intersects(_crate.GetComponent<BoxCollider>().bounds))
@@ -550,21 +592,85 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_playerBoxCollider.bounds.Intersects(_ball.GetComponent<SphereCollider>().bounds))
         {
-            _pickingUpBall = true;
-            _animator.SetBool("IsPickingUp", _pickingUpBall);
-            _pickingUpBallBehaviour.RightHandBallTarget = _rightHandBallTarget;
+            _pickingUpBallIkBehaviour.PickingUpClip = _pickingUpClip;
+            _pickingUpBallIkBehaviour.PickingUpTimer = _pickingUpTimer;
+            _pickingUpBallIkBehaviour.IsPickingUpBall = _isPickingUpBall;
+
+            _interactBallMessage.SetActive(true);
         }
         else
-        { 
-            _pickingUpBall = false;
-            _animator.SetBool("IsPickingUp", _pickingUpBall);
+            _interactBallMessage.SetActive(false);
+
+        if (_YButton && _playerBoxCollider.bounds.Intersects(_ball.GetComponent<SphereCollider>().bounds))
+        {
+            _isPickingUpBall = true;
+            _animator.SetBool("IsPickingUp", _isPickingUpBall);
+            _pickingUpBallIkBehaviour.RightHandBallTarget = _rightHandBallTarget;
+        }
+
+        if (_isPickingUpBall)
+            _pickingUpTimer -= Time.deltaTime;
+
+        if (_pickingUpTimer <= 3.4f)
+        {
+            _interactBallMessage.SetActive(false);
+            _ball.transform.parent = _rightHand;
+        }
+
+        if(_pickingUpTimer <= 0)
+            _interactThrowBallMessage.SetActive(true);
+
+        if (_BButton && _isPickingUpBall)
+        {
+            _animator.SetBool("IsPickingUp", !_isPickingUpBall);
+            _throwBallNumber = 1;
+            _isThrowing = true;
+            _animator.SetBool("IsThrowing", _isThrowing);
+        }
+
+        if (_throwBallNumber == 1)
+        {
+            _interactThrowBallMessage.SetActive(false);
+            _ball.transform.SetParent(_ballGroundTarget);
+            _ball.transform.position = _ballGroundTarget.transform.position;
+            _throwingBallTimer -= Time.deltaTime;
+            IsBallAtPosition = true;
+        }
+        
+        if (_throwingBallTimer <= 0)
+        {
+            _throwingBallTimer = 0;
+            _animator.SetBool("IsThrowing", !_isThrowing);
+            _animator.SetBool("IsPickingUp", !_isPickingUpBall);
         }
     }
+
+    //private Vector3 CalculateVelocity(Vector3 target, Vector3 origin, float time)
+    //{
+    //    Vector3 distance = target - origin;
+    //    Vector3 distanceXZ = distance;
+    //    distanceXZ.y = 0;
+
+    //    float distY = distance.y;
+    //    float distXZ = distanceXZ.magnitude;
+
+    //    float velocityY = distY / time + 0.5f * Mathf.Abs(Physics.gravity.y) * time;
+    //    float velocityXZ = distXZ / time;
+
+    //    Vector3 restult = distanceXZ.normalized;
+    //    restult *= velocityXZ;
+    //    restult.y = velocityY;
+
+    //    return restult;
+    //}
 
     private void ApplyJumpOnCrateAnimation()
     {
         if (_crate.transform.position.x >= _stopPos.position.x)
         {
+            _crate.GetComponent<BoxCollider>().center = new Vector3(0, 0, 0);
+            _crate.GetComponent<BoxCollider>().size = new Vector3(1.25f, 1.25f, 1.25f);
+
             if (_YButton)
             {
                 _isJumpOnCrate = true;
@@ -600,7 +706,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
         if (_animator.GetBool("IsPushingButton"))
         {
             _speed = 0;
-            _isWalking = false;
+            IsWalking = false;
             _hackingTimer -= Time.fixedDeltaTime;
         }
         if (_hackingTimer <= 0)
@@ -627,6 +733,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             for (int i = 0; i < _lights.Length; i++)
                 _lights[i].SetActive(false);
+        }
+    }
+
+    //Golden Egg
+    private void ApplyEndMission()
+    {
+        if(_playerBoxCollider.bounds.Intersects(_goldenEgg.GetComponent<BoxCollider>().bounds))
+        {
+            _isDancing = true;
+            IsWalking = false;
+            _animator.SetBool("IsDancing", true);
+            _winScreen.SetActive(true);
         }
     }
 }

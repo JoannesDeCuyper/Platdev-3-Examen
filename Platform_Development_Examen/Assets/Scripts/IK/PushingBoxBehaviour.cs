@@ -13,6 +13,8 @@ public class PushingBoxBehaviour : StateMachineBehaviour {
     {
         if (IsIK)
         {
+            animator.SetLayerWeight(animator.GetLayerIndex("Pushing"), 1);
+
             animator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandBoxTarget.position);
             animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1);
 

@@ -12,6 +12,8 @@ public class ClimbingLadderBehaviour : StateMachineBehaviour
     // OnStateIK is called right after Animator.OnAnimatorIK(). Code that sets up animation IK (inverse kinematics) should be implemented here.
     override public void OnStateIK(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
+        animator.SetLayerWeight(animator.GetLayerIndex("ClimbingLadder"), 1);
+
         animator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandLadderTarget.position);
         animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, _weightValueHand);
 

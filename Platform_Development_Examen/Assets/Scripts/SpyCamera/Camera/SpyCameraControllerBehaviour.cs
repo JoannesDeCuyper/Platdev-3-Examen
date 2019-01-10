@@ -34,7 +34,7 @@ public class SpyCameraControllerBehaviour : MonoBehaviour
     {
         if (_isSpyMode)
         {
-            _characterControllerScript._isWalking = false;
+            _characterControllerScript.IsWalking = false;
 
             if (_AButton)
             {
@@ -60,7 +60,7 @@ public class SpyCameraControllerBehaviour : MonoBehaviour
         {
             _switchCameraMessage.SetActive(false);
             _zoomCameraMessage.SetActive(false);
-            _characterControllerScript._isWalking = true;
+            _characterControllerScript.IsWalking = true;
             _playerCam.SetActive(true);
 
             for (int i = 0; i < _spyCam.Length; i++)
