@@ -10,7 +10,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
     //Player
     [Header("Player")]
     [SerializeField] private Transform _yBotPlayer;
-    public float _dragOnGround;
+    [SerializeField] private float _dragOnGround;
     public bool IsWalking;
 
     private CharacterController _player;
@@ -49,7 +49,6 @@ public class CharacterControllerBehaviour : MonoBehaviour
     //Animation --> Cover
     [SerializeField] private GameObject[] _crouchingCover;
     [SerializeField] private GameObject[] _standingCover;
-
     public bool IsCrouchingCover;
     public bool IsStandingCover;
 
@@ -70,6 +69,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [SerializeField] private GameObject _ironBar;
     [SerializeField] private Transform _ironBarPos;
 
+    private bool _isJumpingOnRope;
     private bool _isHanging = false;
 
     [Header("Crate")]
@@ -94,6 +94,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [SerializeField] private GameObject _interactStandUpMessage;
     [SerializeField] private GameObject _interactGetOutOfCoverMessage;
     [SerializeField] private GameObject _interactThrowBallMessage;
+    [SerializeField] private GameObject _interactTurnOffLightsMessage;
+    [SerializeField] private GameObject _interactIronBarMessage;
     [SerializeField] private GameObject _cameraMessage;
     [SerializeField] private GameObject _winScreen;
 
@@ -102,7 +104,6 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [Header("Hands")]
     [SerializeField] private Transform _leftHand;
     [SerializeField] private Transform _rightHand;
-    [SerializeField] private Transform _rightHandMiddle;
                         //Crate
     [Header("Crate")]
     [SerializeField] private Transform _leftHandCrateTarget;
@@ -136,14 +137,14 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [Header("Ball")]
     [SerializeField] private GameObject _ball;
     [SerializeField] private Transform _rightHandBallTarget;
+    [SerializeField] private Transform _ballGroundTarget;
     [SerializeField] private AnimationClip _pickingUpClip;
     [SerializeField] private AnimationClip _throwingBallClip;
-    [SerializeField] private Transform _ballGroundTarget;
     public bool IsBallAtPosition;
 
+    private int _throwBallNumber = 0;
     private float _pickingUpTimer;
     private float _throwingBallTimer;
-    public int _throwBallNumber = 0;
     private bool _isPickingUpBall;
     private bool _isThrowIdle;
     private bool _isThrowing;
@@ -151,8 +152,11 @@ public class CharacterControllerBehaviour : MonoBehaviour
     //Lights
     [Header("Lights")]
     [SerializeField] private GameObject _lightTrigger;
+    [SerializeField] private Transform _lightSwitchTarget;
     public bool IsLightsOn = true;
-    public bool _isOnGround;
+
+    private float _pushButtonTimer;
+    private bool _isPushingButton;
 
     //Golden Egg
     [Header("GoldenEgg")]
@@ -162,10 +166,11 @@ public class CharacterControllerBehaviour : MonoBehaviour
     private GameObject[] _lights;
 
     //IK Behaviour scripts
-    private PushingBoxBehaviour _pushingIKBehaviour;
+    private PushingBoxBehaviour _pushingBoxIKBehaviour;
     private ClimbingRopeBehaviour _climbingRopeIKBehaviour;
     private ClimbingLadderBehaviour _climbingLadderIKBehaviour;
-    private PickUpBallBehaviour _pickingUpBallIkBehaviour;
+    private PickUpBallBehaviour _pickUpBallIKBehaviour;
+    private TurnOffLightsBehaviour _turnOffLightsIKBehaviour;
 
     private void Start()
     {
@@ -174,6 +179,14 @@ public class CharacterControllerBehaviour : MonoBehaviour
         _animator = GetComponent<Animator>();
         _playerBoxCollider = GetComponent<BoxCollider>();
 
+        //IK
+        _pushingBoxIKBehaviour = _animator.GetBehaviour<PushingBoxBehaviour>();
+        _climbingRopeIKBehaviour = _animator.GetBehaviour<ClimbingRopeBehaviour>();
+        _climbingLadderIKBehaviour = _animator.GetBehaviour<ClimbingLadderBehaviour>();
+        _pickUpBallIKBehaviour = _animator.GetBehaviour<PickUpBallBehaviour>();
+        _turnOffLightsIKBehaviour = _animator.GetBehaviour<TurnOffLightsBehaviour>();
+
+        //Minimum and maximun speed
         _minXZVelocity = (5.0f * 1000) / (60 * 60); //[m/s], 5km/h
         _maxXZVelocity = (12.0f * 1000) / (60 * 60); //[m/s], 12km/h
 
@@ -181,17 +194,12 @@ public class CharacterControllerBehaviour : MonoBehaviour
         _crateRigidBody = _crate.GetComponent<Rigidbody>();
         _mass = _crateRigidBody.mass;
 
-        //IK
-        _pushingIKBehaviour = _animator.GetBehaviour<PushingBoxBehaviour>();
-        _climbingRopeIKBehaviour = _animator.GetBehaviour<ClimbingRopeBehaviour>();
-        _climbingLadderIKBehaviour = _animator.GetBehaviour<ClimbingLadderBehaviour>();
-        _pickingUpBallIkBehaviour = _animator.GetBehaviour<PickUpBallBehaviour>();
+        //Hacking computer
+        _hackingTimer = _hackingClip.length;
 
         //Lights
         _lights = GameObject.FindGameObjectsWithTag("Lights");
-
-        //Hacking computer
-        _hackingTimer = _hackingClip.length;
+        _pushButtonTimer = _hackingClip.length;
 
         //Ball
         _pickingUpTimer = _pickingUpClip.length / 2;
@@ -217,7 +225,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         _inputMovement = new Vector3(0.0f, 0.0f, _verticalInput);
 
-        if (!_isDancing && !_isOnWall && !_isHacking && !IsCrouchingCover && !IsStandingCover && !_isClimbingLadder && !_isPushingCrate && !_isClimbingRope && !_isHanging)
+        if (!_isDancing && !_isOnWall && !_isHacking && !IsCrouchingCover && !IsStandingCover
+            && !_isClimbingLadder && !_isPushingCrate && !_isClimbingRope && !_isHanging )
             transform.Rotate(0.0f, _horizontalInput, 0.0f);
 
         if (IsCrouchingCover || IsStandingCover || _isHanging)
@@ -227,12 +236,12 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _inputMovement = new Vector3(0.0f, _verticalInput * 0.41f, 0.0f);
 
         if (_isClimbingRope)
-            _inputMovement = new Vector3(0.0f, _verticalInput * 2f, 0.0f);
+            _inputMovement = new Vector3(0.0f, _verticalInput * 0.1f, 0.0f);
 
         if (_isOnWall && _horizontalInput != 0)
         {
-            _wallTarget.position += new Vector3(_horizontalInput * 0.5f * Time.deltaTime, 0, 0);
-            _wallPos.position += new Vector3(_horizontalInput * 0.5f * Time.deltaTime, 0, 0);
+            _wallTarget.position += new Vector3(_horizontalInput * 0.5f * Time.deltaTime, 0.0f, 0.0f);
+            _wallPos.position += new Vector3(_horizontalInput * 0.5f * Time.deltaTime, 0.0f, 0.0f);
         }
 
         if (_leftHandRopeNumber >= 10)
@@ -314,8 +323,13 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             _isGravity = true;
             _velocity.y += Physics.gravity.y * Time.fixedDeltaTime;
-
+            _animator.SetBool("IsFalling", true);
             _player.Move(_velocity);
+        }
+        if (_player.isGrounded)
+        {
+            _isGravity = false;
+            _animator.SetBool("IsFalling", false);
         }
     }
 
@@ -343,12 +357,13 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         bool _isRunning;
 
-        if (!_isPushingCrate && !_isHanging && !_isClimbingRope && !_isClimbingLadder && !IsStandingCover && !IsCrouchingCover && !_isCrouching && _L3Button)
+        if (!_isPushingCrate && !_isHanging && !_isClimbingRope && !_isClimbingLadder 
+            && !IsStandingCover && !IsCrouchingCover && !_isCrouching && _L3Button)
         {
             _isRunning = true;
             Camera.main.fieldOfView = Mathf.Lerp(Camera.main.fieldOfView, zoomedInFOV, Time.deltaTime * _speed);
             _speed += acceleration * Time.fixedDeltaTime;
-            _animator.SetFloat(_verticalVelocityAnimator, _verticalInput * 2.0f);
+            _animator.SetFloat(_verticalVelocityAnimator, _verticalInput * acceleration);
 
             //Set speed to running speed
             if (_speed >= _maxXZVelocity && _isRunning)
@@ -378,16 +393,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             if (_playerBoxCollider.bounds.Intersects(crouchingCover.GetComponent<BoxCollider>().bounds))
             {
-                IsCrouchingCover = true;
                 transform.forward = crouchingCover.transform.forward;
+
+                IsCrouchingCover = true;
                 _animator.SetBool("IsCover", IsCrouchingCover);
                 _interactGetOutOfCoverMessage.SetActive(true);
             }
+
             if (IsCrouchingCover && _BButton)
             {
-                _interactGetOutOfCoverMessage.SetActive(false);
                 IsCrouchingCover = false;
                 _animator.SetBool("IsCover", IsCrouchingCover);
+                _interactGetOutOfCoverMessage.SetActive(false);
             }
         }
         //Big cover objects
@@ -395,16 +412,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             if (_playerBoxCollider.bounds.Intersects(standingCover.GetComponent<BoxCollider>().bounds))
             {
-                IsStandingCover = true;
                 transform.forward = standingCover.transform.forward;
+
+                IsStandingCover = true;
                 _animator.SetBool("IsStandingCover", IsStandingCover);
                 _interactGetOutOfCoverMessage.SetActive(true);
             }
+
             if (IsStandingCover && _BButton)
             {
-                _interactGetOutOfCoverMessage.SetActive(false);
                 IsStandingCover = false;
                 _animator.SetBool("IsStandingCover", IsStandingCover);
+                _interactGetOutOfCoverMessage.SetActive(false);
             }
         }
     }
@@ -413,16 +432,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_playerBoxCollider.bounds.Intersects(_ladder.GetComponent<BoxCollider>().bounds))
         {
+            int number = 1;
+
             _climbingLadderIKBehaviour.LeftHandLadderTarget = _leftHandLadderTarget[_leftHandLadderNumber];
             _climbingLadderIKBehaviour.RightHandLadderTarget = _rightHandLadderTarget[_rightHandLadderNumber];
 
             if(_leftHand.position.y >= _leftHandLadderTarget[_leftHandLadderNumber].position.y)
-                _leftHandLadderNumber += 1;
+                _leftHandLadderNumber += number;
             
             if (_rightHand.position.y >= _rightHandLadderTarget[_rightHandLadderNumber].position.y)
-                _rightHandLadderNumber += 1;
-            
-            if(_leftHand.position.y >= _leftHandLadderTarget[9].position.y)
+                _rightHandLadderNumber += number;
+
+            if (_leftHand.position.y >= _leftHandLadderTarget[9].position.y)
                 transform.position = _ironBarPos.position;
 
             _isClimbingLadder = true;
@@ -437,14 +458,26 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _isGravity = false;
             _animator.SetBool("IsClimbingLadder", _isClimbingLadder);
         }
-        if (_verticalInput != 0 && _isClimbingLadder)
-            _velocity = new Vector3(transform.position.x, transform.position.y + 0.01f * Time.fixedDeltaTime, transform.position.z);
-       
+
+        if (_verticalInput != 0.0f && _isClimbingLadder)
+        {
+            float speed = 0.01f;
+
+            _velocity = new Vector3(transform.position.x, transform.position.y + speed * Time.fixedDeltaTime, transform.position.z);
+        }
+
         if (!_isClimbingLadder)
         {
             _isClimbingLadder = false;
             _animator.SetBool("IsClimbingLadder", _isClimbingLadder);
         }
+
+        if (transform.position.y > _ironBarPos.position.y && transform.position.x > _ironBarPos.position.x)
+        {
+            _leftHandLadderNumber = 0;
+            _rightHandLadderNumber = 0;
+        }
+
         //Gravity
         if (!_isClimbingLadder && !_isClimbingRope)
             _isGravity = true;
@@ -454,6 +487,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_playerBoxCollider.bounds.Intersects(_rope.GetComponent<BoxCollider>().bounds))
         {
+            int number = 1;
+
             //Hand
             _climbingRopeIKBehaviour.LeftHandRopeTarget = _leftHandRopeTarget[_leftHandRopeNumber];
             _climbingRopeIKBehaviour.RightHandRopeTarget = _rightHandRopeTarget[_rightHandRopeNumber];
@@ -462,10 +497,10 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _climbingRopeIKBehaviour.RightFootRopeTarget = _rightFootRopeTarget;
 
             if (_leftHand.position.y >= _leftHandRopeTarget[_leftHandRopeNumber].position.y)
-                _leftHandRopeNumber += 1;
+                _leftHandRopeNumber += number;
             
             if (_rightHand.position.y >= _rightHandRopeTarget[_rightHandRopeNumber].position.y)
-                _rightHandRopeNumber += 1;
+                _rightHandRopeNumber += number;
 
             _isClimbingRope = true;
         }
@@ -492,32 +527,36 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_rightHandRopeNumber >= 10)
         {
-            _yBotPlayer.transform.rotation = Quaternion.Euler(6, 0, 0);
+            Vector3 playerRotation = new Vector3(6.0f, 0.0f, 0.0f);
+
+            _yBotPlayer.transform.rotation = Quaternion.Euler(playerRotation);
             _rightHandRopeNumber = 10;
             transform.position = _wallTarget.position;
             _isOnWall = true;
             _animator.SetBool("IsOnWall", _isOnWall);
             _interactClimbWallMessage.SetActive(true);
         }
+
         if(_isOnWall && _YButton)
         {
-            _interactStandUpMessage.SetActive(true);
             _isClimbingWall = true;
             _animator.SetBool("IsClimbingWall",_isClimbingWall);
+            _interactStandUpMessage.SetActive(true);
         }
+
         if(_interactStandUpMessage.activeSelf == true)
             _interactClimbWallMessage.SetActive(false);
         
         if (_isClimbingWall && _BButton)
         {
-            _yBotPlayer.transform.rotation = Quaternion.Euler(0, 0, 0);
+            _yBotPlayer.transform.rotation = Quaternion.Euler(Vector3.zero);
             _interactStandUpMessage.SetActive(false);
             _rightHandRopeNumber = 0;
             _leftHandRopeNumber = 0;
             _isOnWall = false;
             _isClimbingWall = false;
-            _animator.SetBool("IsOnWall", false);
-            _animator.SetBool("IsClimbingWall", false);
+            _animator.SetBool("IsOnWall", _isOnWall);
+            _animator.SetBool("IsClimbingWall", _isClimbingWall);
             transform.position = _wallPos.position;
             _wallTarget.position = _currentWallTargetPosition;
             _wallPos.position = _currentWallPosPosition;
@@ -526,11 +565,29 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
     private void ApplyHangingAnimation()
     {
+        if (transform.position.y > _ironBarPos.position.y && transform.position.x > _ironBarPos.position.x)
+            _interactIronBarMessage.SetActive(true);
+        else
+            _interactIronBarMessage.SetActive(false);
+
         if (transform.position.y > _ironBarPos.position.y && transform.position.x > _ironBarPos.position.x && _YButton)
         {
-            _isHanging = true;
-            transform.position = new Vector3(transform.position.x, _ironBar.transform.position.y - 2.35f, _ironBar.transform.position.z);
+            _isJumpingOnRope = true;
+            _animator.SetBool("IsJumpingOnRope", _isJumpingOnRope);
             transform.forward = _ironBar.transform.forward;
+        }
+        else
+        {
+            _isJumpingOnRope = false;
+            _animator.SetBool("IsJumpingOnRope", _isJumpingOnRope);
+        }
+
+        if (_animator.GetBool("IsJumpingOnRope") && _YButton)
+        {
+            float yPos = 2.35f;
+
+            _isHanging = true;
+            transform.position = new Vector3(transform.position.x, _ironBar.transform.position.y - yPos, _ironBar.transform.position.z);
         }
         else
             _isHanging = false;
@@ -541,9 +598,14 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _isGravity = false;
             _animator.SetBool("IsHanging", _isHanging);
         }
+
         if (_verticalInput != 0 && _isHanging)
-            _velocity = new Vector3(transform.position.x + 0.01f * Time.fixedDeltaTime, transform.position.y, transform.position.z);
-       
+        {
+            float speed = 0.01f;
+
+            _velocity = new Vector3(transform.position.x + speed * Time.fixedDeltaTime, transform.position.y, transform.position.z);
+        }
+
         if (!_isHanging)
         {
             _isHanging = false;
@@ -555,9 +617,8 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if (_playerBoxCollider.bounds.Intersects(_crate.GetComponent<BoxCollider>().bounds))
         {
-            _pushingIKBehaviour.IsIK = true;
-            _pushingIKBehaviour.LeftHandBoxTarget = _leftHandCrateTarget;
-            _pushingIKBehaviour.RightHandBoxTarget = _rightHandCrateTarget;
+            _pushingBoxIKBehaviour.LeftHandBoxTarget = _leftHandCrateTarget;
+            _pushingBoxIKBehaviour.RightHandBoxTarget = _rightHandCrateTarget;
 
             _interactCrateMessage.SetActive(true);
             _animator.SetBool(_pushingAnimator, true);
@@ -567,11 +628,13 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _interactCrateMessage.SetActive(false);
             _isPushingCrate = false;
         }
+
         if (_YButton && _playerBoxCollider.bounds.Intersects(_crate.GetComponent<BoxCollider>().bounds))
         {
             _isPushingCrate = true;
             transform.forward = _crate.transform.forward;
         }
+
         if (_isPushingCrate)
             _animator.SetBool("IsPushing", _isPushingCrate);
         
@@ -580,6 +643,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _crateRigidBody.isKinematic = false;
             _crateRigidBody.AddForce(Vector3.left * _mass);
         }
+
         if (!_isPushingCrate || _crate.transform.position.x >= _stopPos.position.x)
         {
             _crateRigidBody.isKinematic = true;
@@ -590,11 +654,13 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
     private void ApplyBallAnimation()
     {
+        int number = 1;
+
         if (_playerBoxCollider.bounds.Intersects(_ball.GetComponent<SphereCollider>().bounds))
         {
-            _pickingUpBallIkBehaviour.PickingUpClip = _pickingUpClip;
-            _pickingUpBallIkBehaviour.PickingUpTimer = _pickingUpTimer;
-            _pickingUpBallIkBehaviour.IsPickingUpBall = _isPickingUpBall;
+            _pickUpBallIKBehaviour.PickingUpClip = _pickingUpClip;
+            _pickUpBallIKBehaviour.PickingUpTimer = _pickingUpTimer;
+            _pickUpBallIKBehaviour.IsPickingUpBall = _isPickingUpBall;
 
             _interactBallMessage.SetActive(true);
         }
@@ -605,7 +671,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             _isPickingUpBall = true;
             _animator.SetBool("IsPickingUp", _isPickingUpBall);
-            _pickingUpBallIkBehaviour.RightHandBallTarget = _rightHandBallTarget;
+            _pickUpBallIKBehaviour.RightHandBallTarget = _rightHandBallTarget;
         }
 
         if (_isPickingUpBall)
@@ -617,18 +683,18 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _ball.transform.parent = _rightHand;
         }
 
-        if(_pickingUpTimer <= 0)
+        if (_pickingUpTimer <= 0)
             _interactThrowBallMessage.SetActive(true);
 
         if (_BButton && _isPickingUpBall)
         {
             _animator.SetBool("IsPickingUp", !_isPickingUpBall);
-            _throwBallNumber = 1;
+            _throwBallNumber = number;
             _isThrowing = true;
             _animator.SetBool("IsThrowing", _isThrowing);
         }
 
-        if (_throwBallNumber == 1)
+        if (_throwBallNumber == number)
         {
             _interactThrowBallMessage.SetActive(false);
             _ball.transform.SetParent(_ballGroundTarget);
@@ -636,7 +702,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
             _throwingBallTimer -= Time.deltaTime;
             IsBallAtPosition = true;
         }
-        
+
         if (_throwingBallTimer <= 0)
         {
             _throwingBallTimer = 0;
@@ -645,31 +711,15 @@ public class CharacterControllerBehaviour : MonoBehaviour
         }
     }
 
-    //private Vector3 CalculateVelocity(Vector3 target, Vector3 origin, float time)
-    //{
-    //    Vector3 distance = target - origin;
-    //    Vector3 distanceXZ = distance;
-    //    distanceXZ.y = 0;
-
-    //    float distY = distance.y;
-    //    float distXZ = distanceXZ.magnitude;
-
-    //    float velocityY = distY / time + 0.5f * Mathf.Abs(Physics.gravity.y) * time;
-    //    float velocityXZ = distXZ / time;
-
-    //    Vector3 restult = distanceXZ.normalized;
-    //    restult *= velocityXZ;
-    //    restult.y = velocityY;
-
-    //    return restult;
-    //}
-
     private void ApplyJumpOnCrateAnimation()
     {
         if (_crate.transform.position.x >= _stopPos.position.x)
         {
-            _crate.GetComponent<BoxCollider>().center = new Vector3(0, 0, 0);
-            _crate.GetComponent<BoxCollider>().size = new Vector3(1.25f, 1.25f, 1.25f);
+            Vector3 crateCenter = Vector3.zero;
+            Vector3 crateSize = new Vector3(1.25f, 1.25f, 1.25f);
+
+            _crate.GetComponent<BoxCollider>().center = crateCenter;
+            _crate.GetComponent<BoxCollider>().size = crateSize;
 
             if (_YButton)
             {
@@ -678,10 +728,12 @@ public class CharacterControllerBehaviour : MonoBehaviour
             }
             if (_isJumpOnCrate && _BButton)
             {
+                float speed = 0.05f;
+
                 _isJumpOnCrate = false;
                 _animator.SetBool("IsJumpOnCrate", _isJumpOnCrate);
                 transform.position = _cratePos.position;
-                _crate.transform.position = new Vector3(_crate.transform.position.x - 0.05f, _crate.transform.position.y, _crate.transform.position.z);
+                _crate.transform.position = new Vector3(_crate.transform.position.x - speed, _crate.transform.position.y, _crate.transform.position.z);
             }
         }
     }
@@ -693,17 +745,17 @@ public class CharacterControllerBehaviour : MonoBehaviour
         if(_playerBoxCollider.bounds.Intersects(_computer.GetComponent<MeshCollider>().bounds))
             _interactHackMessage.SetActive(true);
         
-        if (_YButton && _playerBoxCollider.bounds.Intersects(_computer.GetComponent<MeshCollider>().bounds))
+        if (_playerBoxCollider.bounds.Intersects(_computer.GetComponent<MeshCollider>().bounds) && _YButton)
         {
+            IsHacking = true;
             _isHacking = true;
-            _animator.SetBool("IsPushingButton", _isHacking);
+            _animator.SetBool("IsHacking", _isHacking);
             _cameraMessage.SetActive(true);
             _interactHackMessage.SetActive(false);
             _computer.GetComponent<MeshCollider>().enabled = false;
             _computer.GetComponent<BoxCollider>().enabled = true;
-            IsHacking = true;
         }
-        if (_animator.GetBool("IsPushingButton"))
+        if (_animator.GetBool("IsHacking"))
         {
             _speed = 0;
             IsWalking = false;
@@ -713,24 +765,45 @@ public class CharacterControllerBehaviour : MonoBehaviour
         {
             _isHacking = false;
             _speed = _minXZVelocity;
-            _hackingTimer = 1;
-            _animator.SetBool("IsPushingButton", _isHacking);
+            _hackingTimer = _hackingClip.length;
+            _animator.SetBool("IsHacking", _isHacking);
         }
     }
 
     //Lights
     private void ApplyTurnOffLights()
     {
-        if(_playerBoxCollider.bounds.Intersects(_lightTrigger.GetComponent<BoxCollider>().bounds))
-            IsLightsOn = false;
-        
-        if(IsLightsOn)
+        if (IsLightsOn)
         {
             for (int i = 0; i < _lights.Length; i++)
-                _lights[i].SetActive(true);    
+                _lights[i].SetActive(true);
+
+            if (_playerBoxCollider.bounds.Intersects(_lightTrigger.GetComponent<BoxCollider>().bounds))
+                _interactTurnOffLightsMessage.SetActive(true);
+            else
+                _interactTurnOffLightsMessage.SetActive(false);
+
+            if (_playerBoxCollider.bounds.Intersects(_lightTrigger.GetComponent<BoxCollider>().bounds) && _YButton)
+            {
+                _turnOffLightsIKBehaviour.LightSwitchTarget = _lightSwitchTarget;
+                IsLightsOn = false;
+                _isPushingButton = true;
+                _animator.SetBool("IsPushingButton", _isPushingButton);
+            }
         }
+        if (_animator.GetBool("IsPushingButton"))
+            _pushButtonTimer -= Time.deltaTime;
+
+        if (_pushButtonTimer <= 0)
+        {
+            _isPushingButton = false;
+            _animator.SetBool("IsPushingButton", _isPushingButton);
+        }
+
         if (!IsLightsOn)
         {
+            _interactTurnOffLightsMessage.SetActive(false);
+
             for (int i = 0; i < _lights.Length; i++)
                 _lights[i].SetActive(false);
         }
@@ -741,10 +814,33 @@ public class CharacterControllerBehaviour : MonoBehaviour
     {
         if(_playerBoxCollider.bounds.Intersects(_goldenEgg.GetComponent<BoxCollider>().bounds))
         {
-            _isDancing = true;
             IsWalking = false;
-            _animator.SetBool("IsDancing", true);
+            _isDancing = true;
+            _animator.SetBool("IsDancing", _isDancing);
             _winScreen.SetActive(true);
         }
     }
 }
+
+
+
+
+
+//private Vector3 CalculateVelocity(Vector3 target, Vector3 origin, float time)
+//{
+//    Vector3 distance = target - origin;
+//    Vector3 distanceXZ = distance;
+//    distanceXZ.y = 0;
+
+//    float distY = distance.y;
+//    float distXZ = distanceXZ.magnitude;
+
+//    float velocityY = distY / time + 0.5f * Mathf.Abs(Physics.gravity.y) * time;
+//    float velocityXZ = distXZ / time;
+
+//    Vector3 restult = distanceXZ.normalized;
+//    restult *= velocityXZ;
+//    restult.y = velocityY;
+
+//    return restult;
+//}

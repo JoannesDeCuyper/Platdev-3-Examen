@@ -14,7 +14,7 @@ public class SpyCameraControllerBehaviour : MonoBehaviour
     [SerializeField] private GameObject _zoomCameraMessage;
     [SerializeField] private GameObject _interactGetOutOfCoverMessage;
 
-    public int _number = 0;
+    private int _number = 0;
     private bool _AButton, _XButton;
     private bool _isSpyMode = false;
 

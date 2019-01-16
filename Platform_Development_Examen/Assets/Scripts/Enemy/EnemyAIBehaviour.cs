@@ -32,6 +32,7 @@ public class EnemyAIBehaviour : MonoBehaviour
     [SerializeField] private float _standTime = 5.0f;
 
     private float _speed;
+    private float _remainingDistance = 0.5f;
     private int _destinationPoint = 0;
 
     //Lights
@@ -58,6 +59,10 @@ public class EnemyAIBehaviour : MonoBehaviour
 
     private float timer = 1.5f;
     private INode _rootNode;
+
+    private bool _isIdle;
+    private bool _isShooting;
+    private bool _isDead;
 
     private void Start()
     {
@@ -125,30 +130,33 @@ public class EnemyAIBehaviour : MonoBehaviour
             FieldOfViewDistance = 15.0f;
 
             if (_playerBehaviour.IsStandingCover || _playerBehaviour.IsCrouchingCover)
-                FieldOfViewDistance = 1;
+                FieldOfViewDistance = 1.0f;
             else
-                FieldOfViewDistance = 10;
+                FieldOfViewDistance = 10.0f;
 
-            if (!_enemy.pathPending && _enemy.remainingDistance < 0.5f)
+            if (!_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 GoToNextPoint();
 
             _enemy.speed = _speed;
         }
-        
+
         //If lights are off the enemy will walk towards the lightswitch
         if (!_playerBehaviour.IsLightsOn)
         {
-            FieldOfViewDistance = 3.0f;
-            _animator.SetBool("IsIdle", false);
+            int number = 1;
 
-            if (_enemyNumber == 1 && !_enemy.pathPending && _enemy.remainingDistance < 0.5f)
+            FieldOfViewDistance = 3.0f;
+            _isIdle = false;
+            _animator.SetBool("IsIdle", _isIdle);
+
+            if (_enemyNumber == number && !_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 _enemy.destination = _lightSwitchPos.position;
 
-            if (_enemyNumber != 1 && !_enemy.pathPending && _enemy.remainingDistance < 0.5f)
+            if (_enemyNumber != number && !_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 GoToNextPoint();
         }
         //Turn on light
-        if (_enemy.pathEndPosition.x == _lightSwitchPos.position.x && _enemy.remainingDistance < 0.5f)
+        if (_enemy.pathEndPosition.x == _lightSwitchPos.position.x && _enemy.remainingDistance < _remainingDistance)
         {
             _turnOnLightsTimer -= Time.deltaTime;
 
@@ -174,10 +182,12 @@ public class EnemyAIBehaviour : MonoBehaviour
         {
             timer -= Time.deltaTime;
             Time.timeScale = 0.3f;
-            _player.GetComponent<Animator>().SetBool("IsDead", true);
-            _playerBehaviour.IsWalking = false;
             transform.LookAt(_player);
-            _animator.SetBool("IsShooting", true);
+            _playerBehaviour.IsWalking = false;
+            _isShooting = true;
+            _animator.SetBool("IsShooting", _isShooting);
+            _isDead = true;
+            _player.GetComponent<Animator>().SetBool("IsDead", _isDead);
             _speed = 0;
         }
         if(timer <= 0.5f)
@@ -187,7 +197,11 @@ public class EnemyAIBehaviour : MonoBehaviour
         {
             Time.timeScale = 1;
             _deadScreen.SetActive(true);
-            Camera.main.transform.position = Vector3.MoveTowards(Camera.main.transform.position, new Vector3(Camera.main.transform.position.x, Camera.main.transform.position.y + 20, Camera.main.transform.position.z), Time.deltaTime);
+            Camera.main.transform.position = 
+                Vector3.MoveTowards(Camera.main.transform.position, 
+                new Vector3(Camera.main.transform.position.x, 
+                Camera.main.transform.position.y + 20, 
+                Camera.main.transform.position.z), Time.deltaTime);
         }
         
         return _isPlayerSpot;
@@ -197,12 +211,15 @@ public class EnemyAIBehaviour : MonoBehaviour
     {
         if (_playerBehaviour.IsBallAtPosition)
         {
-            _animator.SetBool("IsIdle", false);
+            int number = 2;
 
-            if (_enemyNumber == 2 && !_enemy.pathPending && _enemy.remainingDistance < 0.5f)
+            _isIdle = false;
+            _animator.SetBool("IsIdle", _isIdle);
+
+            if (_enemyNumber == number && !_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 _enemy.destination = _ballPos.position;
 
-            if (_enemyNumber != 2 && !_enemy.pathPending && _enemy.remainingDistance < 0.5f)
+            if (_enemyNumber != number && !_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 GoToNextPoint();
         }
 
@@ -216,10 +233,14 @@ public class EnemyAIBehaviour : MonoBehaviour
         {
             _enemy.transform.position = _points[_destinationPoint].position;
             _standingTimer -= Time.deltaTime;
-            _animator.SetBool("IsIdle", true);
+            _isIdle = true;
+            _animator.SetBool("IsIdle", _isIdle);
         }
         else
-            _animator.SetBool("IsIdle", false);
+        {
+            _isIdle = false;
+            _animator.SetBool("IsIdle", _isIdle);
+        }
 
         _enemy.destination = _points[_destinationPoint].position;
 
@@ -232,7 +253,7 @@ public class EnemyAIBehaviour : MonoBehaviour
 
     private void DrawEnemySight()
     {
-        Debug.DrawLine(_enemy.transform.position, _player.position,Color.cyan);
+        Debug.DrawLine(_enemy.transform.position, _player.position, Color.cyan);
     }
 }
 

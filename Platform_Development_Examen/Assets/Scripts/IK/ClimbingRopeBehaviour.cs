@@ -11,13 +11,14 @@ public class ClimbingRopeBehaviour : StateMachineBehaviour
     public Transform LeftFootRopeTarget;
     public Transform RightFootRopeTarget;
 
+    private float _weight = 1.0f;
     private float _weightValueHand = 0.1f;
     private float _weightValueFoot = 0.1f;
 
     // OnStateIK is called right after Animator.OnAnimatorIK(). Code that sets up animation IK (inverse kinematics) should be implemented here.
     override public void OnStateIK(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        animator.SetLayerWeight(animator.GetLayerIndex("ClimbingRope"), 1);
+        animator.SetLayerWeight(animator.GetLayerIndex("ClimbingRope"), _weight);
 
         //Hand
         animator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandRopeTarget.position);
