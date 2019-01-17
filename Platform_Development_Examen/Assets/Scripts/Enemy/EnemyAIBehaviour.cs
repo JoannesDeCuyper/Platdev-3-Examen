@@ -13,16 +13,12 @@ public class EnemyAIBehaviour : MonoBehaviour
     [SerializeField] private Transform _player;
     [SerializeField] private CharacterControllerBehaviour _playerBehaviour;
 
-    private Vector3 direction;
-
     //Animation
     private Animator _animator;
 
     //Sight
     [Header("Sight")]
-    [SerializeField] private Transform startPos;
-    [SerializeField] private float FieldOfView = 2.0f;
-    [SerializeField] private float FieldOfViewDistance = 15.0f;
+    [SerializeField] private float _radius = 15.0f;
 
     //Navigation
     [Header("Navigation")]
@@ -127,12 +123,10 @@ public class EnemyAIBehaviour : MonoBehaviour
     {
         if (_playerBehaviour.IsLightsOn)
         {
-            FieldOfViewDistance = 15.0f;
-
             if (_playerBehaviour.IsStandingCover || _playerBehaviour.IsCrouchingCover)
-                FieldOfViewDistance = 1.0f;
+                _radius = 1.0f;
             else
-                FieldOfViewDistance = 10.0f;
+                _radius = 10.0f;
 
             if (!_enemy.pathPending && _enemy.remainingDistance < _remainingDistance)
                 GoToNextPoint();
@@ -145,7 +139,7 @@ public class EnemyAIBehaviour : MonoBehaviour
         {
             int number = 1;
 
-            FieldOfViewDistance = 3.0f;
+            _radius = 5.0f;
             _isIdle = false;
             _animator.SetBool("IsIdle", _isIdle);
 
@@ -175,7 +169,7 @@ public class EnemyAIBehaviour : MonoBehaviour
     {
         float distance = Vector3.Distance(_enemy.transform.position, _player.position);
 
-        if (distance < FieldOfViewDistance)
+        if (distance < _radius)
             _isPlayerSpot = true;
 
         if (_isPlayerSpot == true)

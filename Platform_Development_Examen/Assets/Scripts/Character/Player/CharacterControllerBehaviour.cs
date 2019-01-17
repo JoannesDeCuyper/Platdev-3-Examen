@@ -140,6 +140,7 @@ public class CharacterControllerBehaviour : MonoBehaviour
     [SerializeField] private Transform _ballGroundTarget;
     [SerializeField] private AnimationClip _pickingUpClip;
     [SerializeField] private AnimationClip _throwingBallClip;
+    [SerializeField] private Transform[] _wayPoints;
     public bool IsBallAtPosition;
 
     private int _throwBallNumber = 0;
@@ -669,22 +670,32 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         if (_YButton && _playerBoxCollider.bounds.Intersects(_ball.GetComponent<SphereCollider>().bounds))
         {
+            _speed = 0;
             _isPickingUpBall = true;
             _animator.SetBool("IsPickingUp", _isPickingUpBall);
             _pickUpBallIKBehaviour.RightHandBallTarget = _rightHandBallTarget;
         }
 
         if (_isPickingUpBall)
+        {
+            _speed = 0;
             _pickingUpTimer -= Time.deltaTime;
+        }
 
         if (_pickingUpTimer <= 3.4f)
         {
+            _speed = 0;
             _interactBallMessage.SetActive(false);
             _ball.transform.parent = _rightHand;
         }
 
         if (_pickingUpTimer <= 0)
+        {
+            _speed = 0;
             _interactThrowBallMessage.SetActive(true);
+            _isThrowIdle = true;
+            _animator.SetBool("IsThrowIdle", _isThrowIdle);
+        }
 
         if (_BButton && _isPickingUpBall)
         {
@@ -705,7 +716,9 @@ public class CharacterControllerBehaviour : MonoBehaviour
 
         if (_throwingBallTimer <= 0)
         {
+            _speed = _minXZVelocity;
             _throwingBallTimer = 0;
+            _animator.SetBool("IsThrowIdle", !_isThrowIdle);
             _animator.SetBool("IsThrowing", !_isThrowing);
             _animator.SetBool("IsPickingUp", !_isPickingUpBall);
         }
